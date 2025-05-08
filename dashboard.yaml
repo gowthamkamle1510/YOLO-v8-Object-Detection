@@ -1,0 +1,227 @@
+# dashboard.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-config
+  namespace: multi-tenant-platform
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Multi-Tenant Database Platform</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 20px;
+          background-color: #f5f5f5;
+        }
+        .container {
+          max-width: 1200px;
+          margin: 0 auto;
+          background-color: white;
+          padding: 20px;
+          border-radius: 5px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+          color: #333;
+          text-align: center;
+        }
+        .tenant-box {
+          border: 1px solid #ddd;
+          padding: 15px;
+          margin-bottom: 20px;
+          border-radius: 4px;
+        }
+        .tenant-a {
+          border-left: 5px solid #4CAF50;
+        }
+        .tenant-b {
+          border-left: 5px solid #2196F3;
+        }
+        .shared {
+          border-left: 5px solid #FF9800;
+        }
+        h2 {
+          margin-top: 0;
+        }
+        .button {
+          display: inline-block;
+          padding: 8px 16px;
+          background-color: #4CAF50;
+          color: white;
+          text-decoration: none;
+          border-radius: 4px;
+          margin-right: 10px;
+        }
+        .button-blue {
+          background-color: #2196F3;
+        }
+        .tenant-info {
+          margin-bottom: 10px;
+        }
+        .tenant-info span {
+          font-weight: bold;
+        }
+        .section {
+          margin-top: 30px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Multi-Tenant Database Platform</h1>
+        
+        <p>This dashboard demonstrates a containerized database platform for multi-tenancy using Kubernetes.</p>
+        
+        <div class="section">
+          <h2>Approach 1: Separate Database Instances</h2>
+          <p>In this approach, each tenant has its own database instance, providing strong isolation.</p>
+          
+          <div class="tenant-box tenant-a">
+            <h2>Tenant A</h2>
+            <div class="tenant-info">
+              <span>Database:</span> MySQL (Dedicated Instance)
+            </div>
+            <div class="tenant-info">
+              <span>Connection:</span> mysql.tenant-a.svc.cluster.local:3306
+            </div>
+            <div class="tenant-info">
+              <span>Username:</span> root
+            </div>
+            <div class="tenant-info">
+              <span>Password:</span> tenant-a-password
+            </div>
+          </div>
+          
+          <div class="tenant-box tenant-b">
+            <h2>Tenant B</h2>
+            <div class="tenant-info">
+              <span>Database:</span> MySQL (Dedicated Instance)
+            </div>
+            <div class="tenant-info">
+              <span>Connection:</span> mysql.tenant-b.svc.cluster.local:3306
+            </div>
+            <div class="tenant-info">
+              <span>Username:</span> root
+            </div>
+            <div class="tenant-info">
+              <span>Password:</span> tenant-b-password
+            </div>
+          </div>
+        </div>
+        
+        <div class="section">
+          <h2>Approach 2: Multi-Schema Approach</h2>
+          <p>In this approach, tenants share a database instance but have separate schemas.</p>
+          
+          <div class="tenant-box shared">
+            <h2>Shared MySQL Instance</h2>
+            <div class="tenant-info">
+              <span>Connection:</span> shared-mysql.shared-services.svc.cluster.local:3306
+            </div>
+            <div class="tenant-info">
+              <span>Root Password:</span> shared-mysql-password
+            </div>
+            
+            <h3>Tenant A Schema</h3>
+            <div class="tenant-info">
+              <span>Database Name:</span> tenant_a_schema
+            </div>
+            <div class="tenant-info">
+              <span>Username:</span> tenant_a_user
+            </div>
+            <div class="tenant-info">
+              <span>Password:</span> tenant_a_password
+            </div>
+            
+            <h3>Tenant B Schema</h3>
+            <div class="tenant-info">
+              <span>Database Name:</span> tenant_b_schema
+            </div>
+            <div class="tenant-info">
+              <span>Username:</span> tenant_b_user
+            </div>
+            <div class="tenant-info">
+              <span>Password:</span> tenant_b_password
+            </div>
+          </div>
+        </div>
+        
+        <div class="section">
+          <h2>Management Tools</h2>
+          <p><a href="/phpmyadmin" class="button">Access PHPMyAdmin</a></p>
+          <p><a href="http://localhost:30880" class="button">Direct PHPMyAdmin Access</a></p>
+          <p>Use PHPMyAdmin to manage both approaches. You can connect to individual tenant databases or the shared database.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: multi-tenant-platform
+spec:
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: html-content
+          mountPath: /usr/share/nginx/html
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: html-content
+        configMap:
+          name: dashboard-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard
+  namespace: multi-tenant-platform
+spec:
+  selector:
+    app: dashboard
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dashboard-ingress
+  namespace: multi-tenant-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dashboard
+            port:
+              number: 80
